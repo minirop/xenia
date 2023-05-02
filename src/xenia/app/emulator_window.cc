@@ -591,6 +591,15 @@ bool EmulatorWindow::Initialize() {
   }
   main_menu->AddChild(std::move(display_menu));
 
+  // TAS menu.
+  auto tas_menu = MenuItem::Create(MenuItem::Type::kPopup, "&TAS");
+  {
+    tas_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Memory Watcher",
+                         std::bind(&EmulatorWindow::ToggleMemoryWatcher, this)));
+  }
+  main_menu->AddChild(std::move(tas_menu));
+
   // Help menu.
   auto help_menu = MenuItem::Create(MenuItem::Type::kPopup, "&Help");
   {
@@ -931,6 +940,10 @@ void EmulatorWindow::SetFullscreen(bool fullscreen) {
 
 void EmulatorWindow::ToggleFullscreen() {
   SetFullscreen(!window_->IsFullscreen());
+}
+
+void EmulatorWindow::ToggleMemoryWatcher() {
+
 }
 
 void EmulatorWindow::ToggleDisplayConfigDialog() {

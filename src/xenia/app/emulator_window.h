@@ -61,6 +61,7 @@ class EmulatorWindow {
   void SetFullscreen(bool fullscreen);
   void ToggleFullscreen();
   void SetInitializingShaderStorage(bool initializing);
+  void ToggleMemoryWatcher();
 
  private:
   class EmulatorWindowListener final : public ui::WindowListener,
