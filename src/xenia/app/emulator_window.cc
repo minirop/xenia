@@ -499,6 +499,100 @@ void EmulatorWindow::DisplayConfigDialog::OnDraw(ImGuiIO& io) {
   }
 }
 
+static const uint32_t BASE_ADDRESS = 0x82450000;
+static const uint32_t BYTES_PER_CHUNK = 65536;
+static const uint32_t MAX_ADDRESS = 0x82550000;
+
+void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
+  ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(0.6f);
+  
+  bool dialog_open = true;
+  if (!ImGui::Begin("Memory-watcher", &dialog_open,
+                    ImGuiWindowFlags_NoCollapse |
+                        ImGuiWindowFlags_AlwaysAutoResize |
+                        ImGuiWindowFlags_HorizontalScrollbar)) {
+    ImGui::End();
+    return;
+  }
+  
+	auto memory = emulator_window_.emulator_->memory();
+	ImGui::TextUnformatted(fmt::format("{} cells", memory_cells.size()).data());
+	
+	static const char* items[] = {
+		"0x82450000", "0x82460000", "0x82470000", "0x82480000", "0x82490000",
+		"0x824A0000", "0x824B0000", "0x824C0000", "0x824D0000", "0x824E0000",
+		"0x824F0000", "0x82510000", "0x82520000", "0x82530000", "0x82540000" };
+	static int item_current = 0;
+	ImGui::Combo("combo", &item_current, items, IM_ARRAYSIZE(items));
+	
+	if (ImGui::Button("New"))
+	{
+		memory_cells.clear();
+		for (uint32_t i = 0; i < BYTES_PER_CHUNK; i += 4)
+		{
+			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(BASE_ADDRESS + item_current * BYTES_PER_CHUNK + i));
+			if (value > 0)
+			{
+				memory_cells.push_back(MemoryCell { BASE_ADDRESS + i, value });
+			}
+		}
+	}
+	
+	ImGui::SameLine();
+	if (ImGui::Button("=="))
+	{
+		for (auto it = memory_cells.begin(); it != memory_cells.end();)
+		{
+			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(it->address));
+			if (value == it->value)
+			{
+				++it;
+			}
+			else
+			{
+				it = memory_cells.erase(it);
+			}
+		}
+	}
+	
+	ImGui::SameLine();
+	if (ImGui::Button("!="))
+	{
+		for (auto it = memory_cells.begin(); it != memory_cells.end();)
+		{
+			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(it->address));
+			if (value != it->value)
+			{
+				++it;
+			}
+			else
+			{
+				it = memory_cells.erase(it);
+			}
+		}
+	}
+	
+	if (memory_cells.size() < 100)
+	{
+		for (auto cell : memory_cells)
+		{
+			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(cell.address));
+			
+			ImGui::Spacing();
+			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x} / 0x{:x}", cell.address, cell.value, value).data());
+		}
+	}
+  
+  ImGui::End();
+  
+  if (!dialog_open) {
+    emulator_window_.ToggleMemoryWatcher();
+    return;
+  }
+}
+
 bool EmulatorWindow::Initialize() {
   window_->AddListener(&window_listener_);
   window_->AddInputListener(&window_listener_, kZOrderEmulatorWindowInput);
@@ -943,7 +1037,12 @@ void EmulatorWindow::ToggleFullscreen() {
 }
 
 void EmulatorWindow::ToggleMemoryWatcher() {
-
+  if (!memory_watcher_dialog_) {
+    memory_watcher_dialog_ = std::unique_ptr<MemoryWatcherDialog>(
+        new MemoryWatcherDialog(imgui_drawer_.get(), *this));
+  } else {
+    memory_watcher_dialog_.reset();
+  }
 }
 
 void EmulatorWindow::ToggleDisplayConfigDialog() {

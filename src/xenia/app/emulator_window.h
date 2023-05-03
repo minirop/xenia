@@ -106,6 +106,26 @@ class EmulatorWindow {
     EmulatorWindow& emulator_window_;
   };
 
+  class MemoryWatcherDialog final : public ui::ImGuiDialog {
+   public:
+    MemoryWatcherDialog(ui::ImGuiDrawer* imgui_drawer,
+                        EmulatorWindow& emulator_window)
+        : ui::ImGuiDialog(imgui_drawer), emulator_window_(emulator_window) {
+			std::fill(memory_cells.begin(), memory_cells.end(), MemoryCell{});
+		}
+
+   protected:
+    void OnDraw(ImGuiIO& io) override;
+
+   private:
+    EmulatorWindow& emulator_window_;
+	struct MemoryCell {
+		uint32_t address = 0;
+		uint32_t value = 0;
+	};
+	std::vector<MemoryCell> memory_cells; 
+  };
+
   explicit EmulatorWindow(Emulator* emulator,
                           ui::WindowedAppContext& app_context);
 
@@ -160,6 +180,7 @@ class EmulatorWindow {
   bool initializing_shader_storage_ = false;
 
   std::unique_ptr<DisplayConfigDialog> display_config_dialog_;
+  std::unique_ptr<MemoryWatcherDialog> memory_watcher_dialog_;
 };
 
 }  // namespace app
