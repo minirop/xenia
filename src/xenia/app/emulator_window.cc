@@ -525,7 +525,7 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
 		"0x824A0000", "0x824B0000", "0x824C0000", "0x824D0000", "0x824E0000",
 		"0x824F0000", "0x82510000", "0x82520000", "0x82530000", "0x82540000" };
 	static int item_current = 0;
-	ImGui::Combo("combo", &item_current, items, IM_ARRAYSIZE(items));
+	ImGui::Combo("memory chunk", &item_current, items, IM_ARRAYSIZE(items));
 	
 	if (ImGui::Button("New"))
 	{
@@ -583,6 +583,19 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
 			ImGui::Spacing();
 			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x} / 0x{:x}", cell.address, cell.value, value).data());
 		}
+	}
+	ImGui::Spacing();
+	ImGui::TextUnformatted("-----------------");
+	
+	static uint32_t banjo_z_position[] = { 0x8248e350, 0x8248e4bc, 0x8248e4fc, 0x8248e560, 0x8248e5a8, 0x8248e7b4, 0x8248e878, 0x8248e890 };
+	for (auto addr : banjo_z_position)
+	{
+		auto value_x = xe::load_and_swap<float>(memory->TranslateVirtual(addr - 8));
+		auto value_y = xe::load_and_swap<float>(memory->TranslateVirtual(addr - 4));
+		auto value_z = xe::load_and_swap<float>(memory->TranslateVirtual(addr));
+		
+		ImGui::Spacing();
+		ImGui::TextUnformatted(fmt::format("0x{:x}: {:.6f} / {:.6f} / {:.6f}", addr, value_x, value_y, value_z).data());
 	}
   
   ImGui::End();
