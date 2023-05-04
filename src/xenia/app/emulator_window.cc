@@ -509,7 +509,7 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
   ImGui::SetNextWindowBgAlpha(0.6f);
   
   bool dialog_open = true;
-  if (!ImGui::Begin("Memory-watcher", &dialog_open,
+  if (!ImGui::Begin("Memory watcher", &dialog_open,
                     ImGuiWindowFlags_NoCollapse |
                         ImGuiWindowFlags_AlwaysAutoResize |
                         ImGuiWindowFlags_HorizontalScrollbar)) {
@@ -602,6 +602,56 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
   
   if (!dialog_open) {
     emulator_window_.ToggleMemoryWatcher();
+    return;
+  }
+}
+
+EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
+                                                EmulatorWindow& emulator_window,
+                                                const std::filesystem::path & path)
+    : ui::ImGuiDialog(imgui_drawer), emulator_window_(emulator_window), path_(path) {
+  auto memory = emulator_window_.emulator_->memory();
+
+  lua.open_libraries(sol::lib::base);
+
+  sol::table memory_table = lua.create_named_table("memory");
+  memory_table["read_u32"] = [memory](uint32_t address) -> uint32_t {
+    return xe::load_and_swap<uint32_t>(memory->TranslateVirtual(address));
+  };
+  memory_table["read_f32"] = [memory](uint32_t address) -> float {
+    return xe::load_and_swap<float>(memory->TranslateVirtual(address));
+  };
+
+  sol::table imgui_table = lua.create_named_table("imgui");
+  imgui_table["text"] = [](std::string text) {
+    ImGui::TextUnformatted(text.data());
+  };
+
+  sol::table data = lua.script_file(path.string());
+  title = data["title"];
+  draw = data["draw"];
+}
+
+void EmulatorWindow::LuaScriptDialog::OnDraw(ImGuiIO& io) {
+  ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(0.6f);
+  
+  bool dialog_open = true;
+  if (!ImGui::Begin(title.c_str(), &dialog_open,
+                    ImGuiWindowFlags_NoCollapse |
+                    ImGuiWindowFlags_AlwaysAutoResize |
+                    ImGuiWindowFlags_HorizontalScrollbar)) {
+    ImGui::End();
+    return;
+  }
+
+  draw();
+
+  ImGui::End();
+  
+  if (!dialog_open) {
+    emulator_window_.ToggleScript(path_);
     return;
   }
 }
@@ -704,6 +754,28 @@ bool EmulatorWindow::Initialize() {
     tas_menu->AddChild(
         MenuItem::Create(MenuItem::Type::kString, "Memory Watcher",
                          std::bind(&EmulatorWindow::ToggleMemoryWatcher, this)));
+
+    auto scripts_menu = MenuItem::Create(MenuItem::Type::kPopup, "Scripts");
+
+    bool has_scripts = false;
+    for (auto const& dir_entry : std::filesystem::directory_iterator{"scripts"})
+    {
+      if (dir_entry.is_regular_file())
+      {
+        const auto & path = dir_entry.path();
+
+        if (path.extension() == ".lua")
+        {
+          scripts_menu->AddChild(
+              MenuItem::Create(MenuItem::Type::kString, path.filename(),
+                               std::bind(&EmulatorWindow::ToggleScript, this, path)));
+          has_scripts = true;
+        }
+      }
+    }
+
+    if (has_scripts)
+      tas_menu->AddChild(std::move(scripts_menu));
   }
   main_menu->AddChild(std::move(tas_menu));
 
@@ -1055,6 +1127,20 @@ void EmulatorWindow::ToggleMemoryWatcher() {
         new MemoryWatcherDialog(imgui_drawer_.get(), *this));
   } else {
     memory_watcher_dialog_.reset();
+  }
+}
+
+void EmulatorWindow::ToggleScript(const std::filesystem::path & path) {
+  auto filename = path.filename();
+  if (lua_script_dialogs_.count(filename) == 0) {
+    try {
+      lua_script_dialogs_.emplace(filename, std::unique_ptr<LuaScriptDialog>(
+          new LuaScriptDialog(imgui_drawer_.get(), *this, path)));
+    } catch (...) {
+      // do nothing
+    }
+  } else {
+    lua_script_dialogs_.erase(filename);
   }
 }
 

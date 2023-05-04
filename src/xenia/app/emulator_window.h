@@ -13,6 +13,9 @@
 #include <memory>
 #include <string>
 
+#define SOL_EXCEPTIONS_CATCH_ALL 0
+#include <sol/sol.hpp>
+
 #include "xenia/emulator.h"
 #include "xenia/gpu/command_processor.h"
 #include "xenia/ui/imgui_dialog.h"
@@ -62,6 +65,7 @@ class EmulatorWindow {
   void ToggleFullscreen();
   void SetInitializingShaderStorage(bool initializing);
   void ToggleMemoryWatcher();
+  void ToggleScript(const std::filesystem::path & path);
 
  private:
   class EmulatorWindowListener final : public ui::WindowListener,
@@ -119,11 +123,28 @@ class EmulatorWindow {
 
    private:
     EmulatorWindow& emulator_window_;
-	struct MemoryCell {
-		uint32_t address = 0;
-		uint32_t value = 0;
-	};
-	std::vector<MemoryCell> memory_cells; 
+    struct MemoryCell {
+      uint32_t address = 0;
+      uint32_t value = 0;
+    };
+    std::vector<MemoryCell> memory_cells; 
+  };
+
+  class LuaScriptDialog final : public ui::ImGuiDialog {
+   public:
+    LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
+                    EmulatorWindow& emulator_window,
+                    const std::filesystem::path & path);
+
+   protected:
+    void OnDraw(ImGuiIO& io) override;
+
+   private:
+    EmulatorWindow& emulator_window_;
+    std::filesystem::path path_;
+    sol::state lua;
+    std::string title;
+    sol::function draw;
   };
 
   explicit EmulatorWindow(Emulator* emulator,
@@ -181,6 +202,7 @@ class EmulatorWindow {
 
   std::unique_ptr<DisplayConfigDialog> display_config_dialog_;
   std::unique_ptr<MemoryWatcherDialog> memory_watcher_dialog_;
+  std::unordered_map<std::string, std::unique_ptr<LuaScriptDialog>> lua_script_dialogs_;
 };
 
 }  // namespace app

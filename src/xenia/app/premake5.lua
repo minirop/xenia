@@ -34,6 +34,7 @@ project("xenia-app")
     "mspack",
     "snappy",
     "xxhash",
+    "lua",
   })
   defines({
     "XBYAK_NO_OP_NAMES",
