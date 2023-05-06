@@ -614,6 +614,7 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
 
   lua.open_libraries(sol::lib::base);
 
+  // MEMORY
   sol::table memory_table = lua.create_named_table("memory");
   memory_table["read_u32"] = [memory](uint32_t address) -> uint32_t {
     return xe::load_and_swap<uint32_t>(memory->TranslateVirtual(address));
@@ -622,9 +623,29 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
     return xe::load_and_swap<float>(memory->TranslateVirtual(address));
   };
 
+  // IMGUI
   sol::table imgui_table = lua.create_named_table("imgui");
   imgui_table["text"] = [](std::string text) {
     ImGui::TextUnformatted(text.data());
+  };
+  imgui_table["button"] = [](std::string text) -> bool {
+    return ImGui::Button(text.data());
+  };
+  imgui_table["combo"] = [](std::string text, std::vector<const char*> items, int item_current) -> int {
+    ImGui::Combo(text.data(), &item_current, items.data(), items.size());
+    return item_current;
+  };
+  imgui_table["spacing"] = []() {
+    ImGui::Spacing();
+  };
+  imgui_table["sameline"] = []() {
+    ImGui::SameLine();
+  };
+  imgui_table["hex"] = [](const char * text) -> std::string {
+    static char buffer[10] = {};
+    strcpy(buffer, text);
+    ImGui::InputText("##hex", buffer, 8, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+    return std::string { buffer };
   };
 
   sol::table data = lua.script_file(path.string());
