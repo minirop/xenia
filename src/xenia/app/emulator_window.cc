@@ -619,8 +619,44 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
   memory_table["read_u32"] = [memory](uint32_t address) -> uint32_t {
     return xe::load_and_swap<uint32_t>(memory->TranslateVirtual(address));
   };
+  memory_table["read_i32"] = [memory](uint32_t address) -> int32_t {
+    return xe::load_and_swap<int32_t>(memory->TranslateVirtual(address));
+  };
+  memory_table["read_u16"] = [memory](uint32_t address) -> uint16_t {
+    return xe::load_and_swap<uint16_t>(memory->TranslateVirtual(address));
+  };
+  memory_table["read_i16"] = [memory](uint32_t address) -> int16_t {
+    return xe::load_and_swap<int16_t>(memory->TranslateVirtual(address));
+  };
+  memory_table["read_u8"] = [memory](uint32_t address) -> uint8_t {
+    return xe::load_and_swap<uint8_t>(memory->TranslateVirtual(address));
+  };
+  memory_table["read_i8"] = [memory](uint32_t address) -> int8_t {
+    return xe::load_and_swap<int8_t>(memory->TranslateVirtual(address));
+  };
   memory_table["read_f32"] = [memory](uint32_t address) -> float {
     return xe::load_and_swap<float>(memory->TranslateVirtual(address));
+  };
+  memory_table["write_u32"] = [memory](uint32_t address, uint32_t value) {
+    xe::store_and_swap<uint32_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_i32"] = [memory](uint32_t address, int32_t value) {
+    xe::store_and_swap<int32_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_u16"] = [memory](uint32_t address, uint16_t value) {
+    xe::store_and_swap<uint16_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_i16"] = [memory](uint32_t address, int16_t value) {
+    xe::store_and_swap<int16_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_u8"] = [memory](uint32_t address, uint8_t value) {
+    xe::store_and_swap<uint8_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_i8"] = [memory](uint32_t address, int8_t value) {
+    xe::store_and_swap<int8_t>(memory->TranslateVirtual(address), value);
+  };
+  memory_table["write_f32"] = [memory](uint32_t address, float value) {
+    xe::store_and_swap<float>(memory->TranslateVirtual(address), value);
   };
 
   // IMGUI
