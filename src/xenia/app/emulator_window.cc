@@ -501,15 +501,14 @@ void EmulatorWindow::DisplayConfigDialog::OnDraw(ImGuiIO& io) {
 
 static const uint32_t BASE_ADDRESS = 0x82450000;
 static const uint32_t BYTES_PER_CHUNK = 65536;
-static const uint32_t MAX_ADDRESS = 0x82550000;
 
-void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
+void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
   ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(20, 20), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowBgAlpha(0.6f);
   
   bool dialog_open = true;
-  if (!ImGui::Begin("Memory watcher", &dialog_open,
+  if (!ImGui::Begin("Memory search", &dialog_open,
                     ImGuiWindowFlags_NoCollapse |
                         ImGuiWindowFlags_AlwaysAutoResize |
                         ImGuiWindowFlags_HorizontalScrollbar)) {
@@ -521,9 +520,19 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
 	ImGui::TextUnformatted(fmt::format("{} cells", memory_cells.size()).data());
 	
 	static const char* items[] = {
-		"0x82450000", "0x82460000", "0x82470000", "0x82480000", "0x82490000",
-		"0x824A0000", "0x824B0000", "0x824C0000", "0x824D0000", "0x824E0000",
-		"0x824F0000", "0x82510000", "0x82520000", "0x82530000", "0x82540000" };
+		"0x82090000", "0x820A0000", "0x820B0000", "0x820C0000", "0x820D0000", "0x820E0000", "0x820F0000",
+		
+		"0x82100000", "0x82110000", "0x82120000", "0x82130000", "0x82140000", "0x82150000", "0x82160000", "0x82170000",
+		"0x82180000", "0x82190000", "0x821A0000", "0x821B0000", "0x821C0000", "0x821D0000", "0x821E0000", "0x821F0000",
+		
+		"0x82200000", "0x82210000", "0x82220000", "0x82230000", "0x82240000", "0x82250000", "0x82260000", "0x82270000",
+		"0x82280000", "0x82290000", "0x822A0000", "0x822B0000", "0x822C0000", "0x822D0000", "0x822E0000", "0x822F0000",
+		
+		"0x82300000", "0x82310000", "0x82320000", "0x82330000", "0x82340000", "0x82350000", "0x82360000", "0x82370000",
+		"0x82380000", "0x82390000", "0x823A0000", "0x823B0000", "0x823C0000", "0x823D0000", "0x823E0000", "0x823F0000",
+		
+		"0x82400000", "0x82410000", "0x82420000", "0x82430000", "0x82440000"
+	};
 	static int item_current = 0;
 	ImGui::Combo("memory chunk", &item_current, items, IM_ARRAYSIZE(items));
 	
@@ -584,24 +593,11 @@ void EmulatorWindow::MemoryWatcherDialog::OnDraw(ImGuiIO& io) {
 			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x} / 0x{:x}", cell.address, cell.value, value).data());
 		}
 	}
-	ImGui::Spacing();
-	ImGui::TextUnformatted("-----------------");
-	
-	static uint32_t banjo_z_position[] = { 0x8248e350, 0x8248e4bc, 0x8248e4fc, 0x8248e560, 0x8248e5a8, 0x8248e7b4, 0x8248e878, 0x8248e890 };
-	for (auto addr : banjo_z_position)
-	{
-		auto value_x = xe::load_and_swap<float>(memory->TranslateVirtual(addr - 8));
-		auto value_y = xe::load_and_swap<float>(memory->TranslateVirtual(addr - 4));
-		auto value_z = xe::load_and_swap<float>(memory->TranslateVirtual(addr));
-		
-		ImGui::Spacing();
-		ImGui::TextUnformatted(fmt::format("0x{:x}: {:.6f} / {:.6f} / {:.6f}", addr, value_x, value_y, value_z).data());
-	}
   
   ImGui::End();
   
   if (!dialog_open) {
-    emulator_window_.ToggleMemoryWatcher();
+    emulator_window_.ToggleMemorySearch();
     return;
   }
 }
@@ -824,7 +820,7 @@ bool EmulatorWindow::Initialize() {
   {
     tas_menu->AddChild(
         MenuItem::Create(MenuItem::Type::kString, "Memory Watcher",
-                         std::bind(&EmulatorWindow::ToggleMemoryWatcher, this)));
+                         std::bind(&EmulatorWindow::ToggleMemorySearch, this)));
 
     auto scripts_menu = MenuItem::Create(MenuItem::Type::kPopup, "Scripts");
 
@@ -1192,12 +1188,12 @@ void EmulatorWindow::ToggleFullscreen() {
   SetFullscreen(!window_->IsFullscreen());
 }
 
-void EmulatorWindow::ToggleMemoryWatcher() {
-  if (!memory_watcher_dialog_) {
-    memory_watcher_dialog_ = std::unique_ptr<MemoryWatcherDialog>(
-        new MemoryWatcherDialog(imgui_drawer_.get(), *this));
+void EmulatorWindow::ToggleMemorySearch() {
+  if (!memory_search_dialog_) {
+    memory_search_dialog_ = std::unique_ptr<MemorySearchDialog>(
+        new MemorySearchDialog(imgui_drawer_.get(), *this));
   } else {
-    memory_watcher_dialog_.reset();
+    memory_search_dialog_.reset();
   }
 }
 

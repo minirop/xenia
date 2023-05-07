@@ -64,7 +64,7 @@ class EmulatorWindow {
   void SetFullscreen(bool fullscreen);
   void ToggleFullscreen();
   void SetInitializingShaderStorage(bool initializing);
-  void ToggleMemoryWatcher();
+  void ToggleMemorySearch();
   void ToggleScript(const std::filesystem::path & path);
 
  private:
@@ -110,9 +110,9 @@ class EmulatorWindow {
     EmulatorWindow& emulator_window_;
   };
 
-  class MemoryWatcherDialog final : public ui::ImGuiDialog {
+  class MemorySearchDialog final : public ui::ImGuiDialog {
    public:
-    MemoryWatcherDialog(ui::ImGuiDrawer* imgui_drawer,
+    MemorySearchDialog(ui::ImGuiDrawer* imgui_drawer,
                         EmulatorWindow& emulator_window)
         : ui::ImGuiDialog(imgui_drawer), emulator_window_(emulator_window) {
 			std::fill(memory_cells.begin(), memory_cells.end(), MemoryCell{});
@@ -201,7 +201,7 @@ class EmulatorWindow {
   bool initializing_shader_storage_ = false;
 
   std::unique_ptr<DisplayConfigDialog> display_config_dialog_;
-  std::unique_ptr<MemoryWatcherDialog> memory_watcher_dialog_;
+  std::unique_ptr<MemorySearchDialog> memory_search_dialog_;
   std::unordered_map<std::string, std::unique_ptr<LuaScriptDialog>> lua_script_dialogs_;
 };
 
