@@ -612,7 +612,7 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
     : ui::ImGuiDialog(imgui_drawer), emulator_window_(emulator_window), path_(path) {
   auto memory = emulator_window_.emulator_->memory();
 
-  lua.open_libraries(sol::lib::base);
+  lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::bit32);
 
   // MEMORY
   sol::table memory_table = lua.create_named_table("memory");
@@ -668,7 +668,7 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
     return ImGui::Button(text.data());
   };
   imgui_table["combo"] = [](std::string text, std::vector<const char*> items, int item_current) -> int {
-    ImGui::Combo(text.data(), &item_current, items.data(), items.size());
+    ImGui::Combo(text.data(), &item_current, items.data(), static_cast<int>(items.size()));
     return item_current;
   };
   imgui_table["spacing"] = []() {
@@ -824,7 +824,7 @@ bool EmulatorWindow::Initialize() {
         if (path.extension() == ".lua")
         {
           scripts_menu->AddChild(
-              MenuItem::Create(MenuItem::Type::kString, path.filename(),
+              MenuItem::Create(MenuItem::Type::kString, path.filename().string(),
                                std::bind(&EmulatorWindow::ToggleScript, this, path)));
           has_scripts = true;
         }
@@ -1188,7 +1188,7 @@ void EmulatorWindow::ToggleMemoryWatcher() {
 }
 
 void EmulatorWindow::ToggleScript(const std::filesystem::path & path) {
-  auto filename = path.filename();
+  auto filename = path.filename().string();
   if (lua_script_dialogs_.count(filename) == 0) {
     try {
       lua_script_dialogs_.emplace(filename, std::unique_ptr<LuaScriptDialog>(

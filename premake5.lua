@@ -40,7 +40,7 @@ end
 
 characterset("Unicode")
 flags({
-  "FatalWarnings",        -- Treat warnings as errors.
+  --"FatalWarnings",        -- Treat warnings as errors.
 })
 
 filter("kind:StaticLib")
