@@ -677,11 +677,25 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
   imgui_table["sameline"] = []() {
     ImGui::SameLine();
   };
-  imgui_table["hex"] = [](const char * text) -> std::string {
+  imgui_table["hex"] = [](const char * name, const char * text) -> std::string {
     static char buffer[10] = {};
     strcpy(buffer, text);
-    ImGui::InputText("##hex", buffer, 8, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+    ImGui::TextUnformatted(name);
+    ImGui::SameLine();
+    ImGui::PushID(name);
+    ImGui::InputText("##", buffer, 8, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+    ImGui::PopID();
     return std::string { buffer };
+  };
+  imgui_table["float"] = [](const char * name, const char * text) -> float {
+    static char buffer[65] = {};
+    strcpy(buffer, text);
+    ImGui::TextUnformatted(name);
+    ImGui::SameLine();
+    ImGui::PushID(name);
+    ImGui::InputText("##", buffer, 64, ImGuiInputTextFlags_CharsDecimal);
+    ImGui::PopID();
+    return std::atof(buffer);
   };
 
   sol::table data = lua.script_file(path.string());
