@@ -815,6 +815,26 @@ bool EmulatorWindow::Initialize() {
   }
   main_menu->AddChild(std::move(display_menu));
 
+#define kXNotificationIDSystemUI 0x00000009
+#define kXNotificationIDSystemSignInChanged 0x0000000A
+  // broadcast menu
+  auto broadcast_menu = MenuItem::Create(MenuItem::Type::kPopup, "Broadcast");
+  {
+    broadcast_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "UI true",
+                         std::bind(&EmulatorWindow::SendBroadcast, this, kXNotificationIDSystemUI, true)));
+    broadcast_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "UI false",
+                         std::bind(&EmulatorWindow::SendBroadcast, this, kXNotificationIDSystemUI, false)));
+    broadcast_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "sign-in true",
+                         std::bind(&EmulatorWindow::SendBroadcast, this, kXNotificationIDSystemSignInChanged, true)));
+    broadcast_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "sign-in false",
+                         std::bind(&EmulatorWindow::SendBroadcast, this, kXNotificationIDSystemSignInChanged, false)));
+  }
+  main_menu->AddChild(std::move(broadcast_menu));
+
   // TAS menu.
   auto tas_menu = MenuItem::Create(MenuItem::Type::kPopup, "&TAS");
   {
@@ -1209,6 +1229,10 @@ void EmulatorWindow::ToggleScript(const std::filesystem::path & path) {
   } else {
     lua_script_dialogs_.erase(filename);
   }
+}
+
+void EmulatorWindow::SendBroadcast(uint32_t ID, bool data) {
+  emulator_->kernel_state()->BroadcastNotification(ID, data);
 }
 
 void EmulatorWindow::ToggleDisplayConfigDialog() {

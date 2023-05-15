@@ -66,6 +66,7 @@ class EmulatorWindow {
   void SetInitializingShaderStorage(bool initializing);
   void ToggleMemorySearch();
   void ToggleScript(const std::filesystem::path & path);
+  void SendBroadcast(uint32_t ID, bool data);
 
  private:
   class EmulatorWindowListener final : public ui::WindowListener,
