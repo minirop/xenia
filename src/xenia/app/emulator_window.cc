@@ -499,116 +499,6 @@ void EmulatorWindow::DisplayConfigDialog::OnDraw(ImGuiIO& io) {
   }
 }
 
-static const uint32_t BASE_ADDRESS = 0x82450000;
-static const uint32_t BYTES_PER_CHUNK = 65536;
-
-void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
-  ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowSize(ImVec2(20, 20), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowBgAlpha(0.6f);
-  
-  bool dialog_open = true;
-  if (!ImGui::Begin("Memory search", &dialog_open,
-                    ImGuiWindowFlags_NoCollapse |
-                        ImGuiWindowFlags_AlwaysAutoResize |
-                        ImGuiWindowFlags_HorizontalScrollbar)) {
-    ImGui::End();
-    return;
-  }
-  
-  using search_t = uint32_t;
-  
-	auto memory = emulator_window_.emulator_->memory();
-	ImGui::TextUnformatted(fmt::format("{} cells", memory_cells.size()).data());
-	/*
-	static const char* items[] = {
-		"0x82090000", "0x820A0000", "0x820B0000", "0x820C0000", "0x820D0000", "0x820E0000", "0x820F0000",
-		
-		"0x82100000", "0x82110000", "0x82120000", "0x82130000", "0x82140000", "0x82150000", "0x82160000", "0x82170000",
-		"0x82180000", "0x82190000", "0x821A0000", "0x821B0000", "0x821C0000", "0x821D0000", "0x821E0000", "0x821F0000",
-		
-		"0x82200000", "0x82210000", "0x82220000", "0x82230000", "0x82240000", "0x82250000", "0x82260000", "0x82270000",
-		"0x82280000", "0x82290000", "0x822A0000", "0x822B0000", "0x822C0000", "0x822D0000", "0x822E0000", "0x822F0000",
-		
-		"0x82300000", "0x82310000", "0x82320000", "0x82330000", "0x82340000", "0x82350000", "0x82360000", "0x82370000",
-		"0x82380000", "0x82390000", "0x823A0000", "0x823B0000", "0x823C0000", "0x823D0000", "0x823E0000", "0x823F0000",
-		
-		"0x82400000", "0x82410000", "0x82420000", "0x82430000", "0x82440000"
-	};
-	static int item_current = 0;
-	ImGui::Combo("memory chunk", &item_current, items, IM_ARRAYSIZE(items));*/
-	
-	static char value[64] = "0";
-	ImGui::InputText("value", value, 32, ImGuiInputTextFlags_CharsDecimal);
-	auto int_val = std::stoi(value);
-	auto real_val = static_cast<search_t>(int_val);
-	
-	if (ImGui::Button("New"))
-	{
-		memory_cells.clear();
-		for (uint32_t i = 0; i < BYTES_PER_CHUNK*15; i += sizeof(search_t))
-		{
-			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(BASE_ADDRESS + i));
-			if (value == real_val)
-			{
-				memory_cells.push_back(BASE_ADDRESS + i);
-			}
-		}
-	}
-	
-	ImGui::SameLine();
-	if (ImGui::Button("=="))
-	{
-		for (auto it = memory_cells.begin(); it != memory_cells.end();)
-		{
-			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
-			if (value == real_val)
-			{
-				++it;
-			}
-			else
-			{
-				it = memory_cells.erase(it);
-			}
-		}
-	}
-	
-	ImGui::SameLine();
-	if (ImGui::Button("!="))
-	{
-		for (auto it = memory_cells.begin(); it != memory_cells.end();)
-		{
-			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
-			if (value != real_val)
-			{
-				++it;
-			}
-			else
-			{
-				it = memory_cells.erase(it);
-			}
-		}
-	}
-	
-	if (memory_cells.size() < 100)
-	{
-		for (auto cell : memory_cells)
-		{
-			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(cell));
-			
-			ImGui::Spacing();
-			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x}", cell, value).data());
-		}
-	}
-  
-  ImGui::End();
-  
-  if (!dialog_open) {
-    emulator_window_.ToggleMemorySearch();
-    return;
-  }
-}
-
 EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
                                                 EmulatorWindow& emulator_window,
                                                 const std::filesystem::path & path)
@@ -849,9 +739,20 @@ bool EmulatorWindow::Initialize() {
   // TAS menu.
   auto tas_menu = MenuItem::Create(MenuItem::Type::kPopup, "&TAS");
   {
-    tas_menu->AddChild(
-        MenuItem::Create(MenuItem::Type::kString, "Memory Search",
-                         std::bind(&EmulatorWindow::ToggleMemorySearch, this)));
+    auto search_menu = MenuItem::Create(MenuItem::Type::kPopup, "Search");
+    search_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Memory Search - 32 bits",
+                         std::bind(&EmulatorWindow::ToggleMemorySearch<uint32_t>, this)));
+    search_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Memory Search - 16 bits",
+                         std::bind(&EmulatorWindow::ToggleMemorySearch<uint16_t>, this)));
+    search_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Memory Search - 8 bits",
+                         std::bind(&EmulatorWindow::ToggleMemorySearch<uint8_t>, this)));
+    search_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Memory Search - float",
+                         std::bind(&EmulatorWindow::ToggleMemorySearch<float>, this)));
+    tas_menu->AddChild(std::move(search_menu));
 
     auto scripts_menu = MenuItem::Create(MenuItem::Type::kPopup, "Scripts");
 
@@ -1217,15 +1118,6 @@ void EmulatorWindow::SetFullscreen(bool fullscreen) {
 
 void EmulatorWindow::ToggleFullscreen() {
   SetFullscreen(!window_->IsFullscreen());
-}
-
-void EmulatorWindow::ToggleMemorySearch() {
-  if (!memory_search_dialog_) {
-    memory_search_dialog_ = std::unique_ptr<MemorySearchDialog>(
-        new MemorySearchDialog(imgui_drawer_.get(), *this));
-  } else {
-    memory_search_dialog_.reset();
-  }
 }
 
 void EmulatorWindow::ToggleScript(const std::filesystem::path & path) {

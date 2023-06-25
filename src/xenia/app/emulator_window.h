@@ -12,6 +12,9 @@
 
 #include <memory>
 #include <string>
+#include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
 
 #define SOL_EXCEPTIONS_CATCH_ALL 0
 #include <sol/sol.hpp>
@@ -27,6 +30,9 @@
 #include "xenia/ui/window_listener.h"
 #include "xenia/ui/windowed_app_context.h"
 #include "xenia/xbox.h"
+
+static const uint32_t BASE_ADDRESS = 0x82450000;
+static const uint32_t BYTES_PER_CHUNK = 65536;
 
 namespace xe {
 namespace app {
@@ -64,9 +70,17 @@ class EmulatorWindow {
   void SetFullscreen(bool fullscreen);
   void ToggleFullscreen();
   void SetInitializingShaderStorage(bool initializing);
-  void ToggleMemorySearch();
   void ToggleScript(const std::filesystem::path & path);
   void SendBroadcast(uint32_t ID, bool data);
+
+  template <typename search_t>
+  void ToggleMemorySearch() {
+	  if (memory_search_dialogs_.find(typeid(search_t)) == memory_search_dialogs_.end()) {
+		memory_search_dialogs_[typeid(search_t)].reset(new MemorySearchDialog<search_t>(imgui_drawer_.get(), *this));
+	  } else {
+		memory_search_dialogs_[typeid(search_t)].reset();
+	  }
+	}
 
  private:
   class EmulatorWindowListener final : public ui::WindowListener,
@@ -111,6 +125,7 @@ class EmulatorWindow {
     EmulatorWindow& emulator_window_;
   };
 
+  template <typename search_t>
   class MemorySearchDialog final : public ui::ImGuiDialog {
    public:
     MemorySearchDialog(ui::ImGuiDrawer* imgui_drawer,
@@ -119,14 +134,157 @@ class EmulatorWindow {
 		}
 
    protected:
-    void OnDraw(ImGuiIO& io) override;
+    void OnDraw(ImGuiIO& io) override {
+	  ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+	  ImGui::SetNextWindowSize(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+	  ImGui::SetNextWindowBgAlpha(0.6f);
+	  
+	  static std::unordered_map<std::type_index, const char*> window_titles = {
+		  {typeid(uint8_t), "Memory search - 8 bits"},
+		  {typeid(uint16_t), "Memory search - 16 bits"},
+		  {typeid(uint32_t), "Memory search - 32 bits"},
+		  {typeid(float), "Memory search - float"},
+	  };
+	  
+	  bool dialog_open = true;
+	  if (!ImGui::Begin(window_titles[typeid(search_t)], &dialog_open,
+						ImGuiWindowFlags_NoCollapse |
+						ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_HorizontalScrollbar)) {
+		ImGui::End();
+		return;
+	  }
+	  
+		auto memory = emulator_window_.emulator_->memory();
+		ImGui::TextUnformatted(fmt::format("{} cells", memory_cells.size()).data());
+
+		if (typeid(search_t) == typeid(float))
+		{
+			static char min_value[64] = "0";
+			static char max_value[64] = "0";
+			ImGui::InputText("minimum", min_value, 32, ImGuiInputTextFlags_CharsDecimal);
+			ImGui::InputText("maximum", max_value, 32, ImGuiInputTextFlags_CharsDecimal);
+			auto min_val = std::stof(min_value);
+			auto max_val = std::stof(max_value);
+			
+			if (ImGui::Button("new search"))
+			{
+				memory_cells.clear();
+				for (uint32_t i = 0; i < BYTES_PER_CHUNK*15; i += sizeof(search_t))
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(BASE_ADDRESS + i));
+					if (value >= min_val && value < max_val)
+					{
+						memory_cells.push_back(BASE_ADDRESS + i);
+					}
+				}
+			}
+			
+			ImGui::SameLine();
+			if (ImGui::Button("continue"))
+			{
+				for (auto it = memory_cells.begin(); it != memory_cells.end();)
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
+					if (value >= min_val && value < max_val)
+					{
+						++it;
+					}
+					else
+					{
+						it = memory_cells.erase(it);
+					}
+				}
+			}
+			
+			if (memory_cells.size() < 100)
+			{
+				for (auto cell : memory_cells)
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(cell));
+					
+					ImGui::Spacing();
+					ImGui::TextUnformatted(fmt::format("0x{:x}: {}", cell, value).data());
+				}
+			}
+		}
+		else
+		{
+			static char value[64] = "0";
+			ImGui::InputText("value", value, 32, ImGuiInputTextFlags_CharsDecimal);
+			
+			auto int_val = std::stoi(value);
+			auto real_val = static_cast<search_t>(int_val);
+			
+			if (ImGui::Button("New"))
+			{
+				memory_cells.clear();
+				for (uint32_t i = 0; i < BYTES_PER_CHUNK*15; i += sizeof(search_t))
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(BASE_ADDRESS + i));
+					if (value == real_val)
+					{
+						memory_cells.push_back(BASE_ADDRESS + i);
+					}
+				}
+			}
+			
+			ImGui::SameLine();
+			if (ImGui::Button("=="))
+			{
+				for (auto it = memory_cells.begin(); it != memory_cells.end();)
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
+					if (value == real_val)
+					{
+						++it;
+					}
+					else
+					{
+						it = memory_cells.erase(it);
+					}
+				}
+			}
+			
+			ImGui::SameLine();
+			if (ImGui::Button("!="))
+			{
+				for (auto it = memory_cells.begin(); it != memory_cells.end();)
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
+					if (value != real_val)
+					{
+						++it;
+					}
+					else
+					{
+						it = memory_cells.erase(it);
+					}
+				}
+			}
+			
+			if (memory_cells.size() < 100)
+			{
+				for (auto cell : memory_cells)
+				{
+					auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(cell));
+					
+					ImGui::Spacing();
+					ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x}", cell, value).data());
+				}
+			}
+		}
+	  
+	  ImGui::End();
+	  
+	  if (!dialog_open) {
+		emulator_window_.ToggleMemorySearch<search_t>();
+		return;
+	  }
+	}
 
    private:
     EmulatorWindow& emulator_window_;
-    struct MemoryCell {
-      uint32_t address = 0;
-      uint32_t value = 0;
-    };
     std::vector<uint32_t> memory_cells; 
   };
 
@@ -201,7 +359,7 @@ class EmulatorWindow {
   bool initializing_shader_storage_ = false;
 
   std::unique_ptr<DisplayConfigDialog> display_config_dialog_;
-  std::unique_ptr<MemorySearchDialog> memory_search_dialog_;
+  std::unordered_map<std::type_index, std::unique_ptr<ui::ImGuiDialog>> memory_search_dialogs_;
   std::unordered_map<std::string, std::unique_ptr<LuaScriptDialog>> lua_script_dialogs_;
 };
 
