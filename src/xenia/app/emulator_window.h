@@ -116,7 +116,6 @@ class EmulatorWindow {
     MemorySearchDialog(ui::ImGuiDrawer* imgui_drawer,
                         EmulatorWindow& emulator_window)
         : ui::ImGuiDialog(imgui_drawer), emulator_window_(emulator_window) {
-			std::fill(memory_cells.begin(), memory_cells.end(), MemoryCell{});
 		}
 
    protected:
@@ -128,7 +127,7 @@ class EmulatorWindow {
       uint32_t address = 0;
       uint32_t value = 0;
     };
-    std::vector<MemoryCell> memory_cells; 
+    std::vector<uint32_t> memory_cells; 
   };
 
   class LuaScriptDialog final : public ui::ImGuiDialog {

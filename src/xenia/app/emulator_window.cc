@@ -516,9 +516,11 @@ void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
     return;
   }
   
+  using search_t = uint32_t;
+  
 	auto memory = emulator_window_.emulator_->memory();
 	ImGui::TextUnformatted(fmt::format("{} cells", memory_cells.size()).data());
-	
+	/*
 	static const char* items[] = {
 		"0x82090000", "0x820A0000", "0x820B0000", "0x820C0000", "0x820D0000", "0x820E0000", "0x820F0000",
 		
@@ -534,17 +536,22 @@ void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
 		"0x82400000", "0x82410000", "0x82420000", "0x82430000", "0x82440000"
 	};
 	static int item_current = 0;
-	ImGui::Combo("memory chunk", &item_current, items, IM_ARRAYSIZE(items));
+	ImGui::Combo("memory chunk", &item_current, items, IM_ARRAYSIZE(items));*/
+	
+	static char value[64] = "0";
+	ImGui::InputText("value", value, 32, ImGuiInputTextFlags_CharsDecimal);
+	auto int_val = std::stoi(value);
+	auto real_val = static_cast<search_t>(int_val);
 	
 	if (ImGui::Button("New"))
 	{
 		memory_cells.clear();
-		for (uint32_t i = 0; i < BYTES_PER_CHUNK; i += 4)
+		for (uint32_t i = 0; i < BYTES_PER_CHUNK*15; i += sizeof(search_t))
 		{
-			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(BASE_ADDRESS + item_current * BYTES_PER_CHUNK + i));
-			if (value > 0)
+			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(BASE_ADDRESS + i));
+			if (value == real_val)
 			{
-				memory_cells.push_back(MemoryCell { BASE_ADDRESS + i, value });
+				memory_cells.push_back(BASE_ADDRESS + i);
 			}
 		}
 	}
@@ -554,8 +561,8 @@ void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
 	{
 		for (auto it = memory_cells.begin(); it != memory_cells.end();)
 		{
-			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(it->address));
-			if (value == it->value)
+			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
+			if (value == real_val)
 			{
 				++it;
 			}
@@ -571,8 +578,8 @@ void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
 	{
 		for (auto it = memory_cells.begin(); it != memory_cells.end();)
 		{
-			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(it->address));
-			if (value != it->value)
+			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(*it));
+			if (value != real_val)
 			{
 				++it;
 			}
@@ -587,10 +594,10 @@ void EmulatorWindow::MemorySearchDialog::OnDraw(ImGuiIO& io) {
 	{
 		for (auto cell : memory_cells)
 		{
-			auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(cell.address));
+			auto value = xe::load_and_swap<search_t>(memory->TranslateVirtual(cell));
 			
 			ImGui::Spacing();
-			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x} / 0x{:x}", cell.address, cell.value, value).data());
+			ImGui::TextUnformatted(fmt::format("0x{:x}: 0x{:x}", cell, value).data());
 		}
 	}
   
@@ -679,7 +686,7 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
     ImGui::TextUnformatted(name);
     ImGui::SameLine();
     ImGui::PushID(name);
-    ImGui::InputText("##", buffer, 8, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+    ImGui::InputText("##", buffer, 9, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
     ImGui::PopID();
     return std::string { buffer };
   };
@@ -713,7 +720,11 @@ void EmulatorWindow::LuaScriptDialog::OnDraw(ImGuiIO& io) {
     return;
   }
 
-  draw();
+  try {
+    draw();
+  } catch (std::exception & exception) {
+    ImGui::TextUnformatted(exception.what());
+  }
 
   ImGui::End();
   
@@ -839,7 +850,7 @@ bool EmulatorWindow::Initialize() {
   auto tas_menu = MenuItem::Create(MenuItem::Type::kPopup, "&TAS");
   {
     tas_menu->AddChild(
-        MenuItem::Create(MenuItem::Type::kString, "Memory Watcher",
+        MenuItem::Create(MenuItem::Type::kString, "Memory Search",
                          std::bind(&EmulatorWindow::ToggleMemorySearch, this)));
 
     auto scripts_menu = MenuItem::Create(MenuItem::Type::kPopup, "Scripts");
