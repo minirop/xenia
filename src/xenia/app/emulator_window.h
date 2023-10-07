@@ -72,6 +72,10 @@ class EmulatorWindow {
   void SetInitializingShaderStorage(bool initializing);
   void ToggleScript(const std::filesystem::path & path);
   void SendBroadcast(uint32_t ID, bool data);
+  
+  void SaveState();
+  void LoadState();
+  std::vector<uint32_t> saveStateMemory;
 
   template <typename search_t>
   void ToggleMemorySearch() {
@@ -285,7 +289,7 @@ class EmulatorWindow {
 
    private:
     EmulatorWindow& emulator_window_;
-    std::vector<uint32_t> memory_cells; 
+    std::vector<uint32_t> memory_cells;
   };
 
   class LuaScriptDialog final : public ui::ImGuiDialog {

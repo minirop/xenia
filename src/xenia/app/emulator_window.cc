@@ -590,6 +590,10 @@ EmulatorWindow::LuaScriptDialog::LuaScriptDialog(ui::ImGuiDrawer* imgui_drawer,
     ImGui::PopID();
     return std::atof(buffer);
   };
+  
+  imgui_table["send_broadcast"] = [this](uint32_t ID, bool data) {
+	this->emulator_window_.SendBroadcast(ID, data);
+  };
 
   sol::table data = lua.script_file(path.string());
   title = data["title"];
@@ -753,6 +757,15 @@ bool EmulatorWindow::Initialize() {
         MenuItem::Create(MenuItem::Type::kString, "Memory Search - float",
                          std::bind(&EmulatorWindow::ToggleMemorySearch<float>, this)));
     tas_menu->AddChild(std::move(search_menu));
+	
+    auto savestate_menu = MenuItem::Create(MenuItem::Type::kPopup, "save states");
+    savestate_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Save",
+                         std::bind(&EmulatorWindow::SaveState, this)));
+    savestate_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "Load",
+                         std::bind(&EmulatorWindow::LoadState, this)));
+    tas_menu->AddChild(std::move(savestate_menu));
 
     auto scripts_menu = MenuItem::Create(MenuItem::Type::kPopup, "Scripts");
 
@@ -820,6 +833,44 @@ bool EmulatorWindow::Initialize() {
 
   return true;
 }
+
+static uint32_t ADDR_STATE_SAVE_START = 0x82400000;
+static uint32_t ADDR_STATE_SAVE_END = 0x82500000;
+void EmulatorWindow::SaveState()
+{
+  XELOGW("BEGIN SAVESTATE");
+  saveStateMemory.reserve(BYTES_PER_CHUNK * 15);
+  XELOGW("MAYBE SAVESTATE");
+  auto memory = emulator_->memory();
+  XELOGW("SOON SAVESTATE");
+  /*for (uint32_t i = 0; i < ADDR_STATE_SAVE_END - ADDR_STATE_SAVE_START; i += sizeof(uint32_t))
+  {
+	auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(ADDR_STATE_SAVE_START + i));
+	saveStateMemory.push_back(value);
+  }*/
+  
+	FILE * f = fopen("dump.bin", "wb");
+	for (uint32_t i = 0; i < BYTES_PER_CHUNK*15; i += sizeof(uint32_t))
+	{
+		auto value = xe::load_and_swap<uint32_t>(memory->TranslateVirtual(BASE_ADDRESS + i));
+		fwrite(&value, sizeof(uint32_t), 1, f);
+	}
+	fclose(f);
+  XELOGW("END SAVESTATE");
+}
+
+void EmulatorWindow::LoadState()
+{
+  XELOGW("BEGIN LOADSTATE");
+  XELOGW("MAYBE LOADSTATE");
+  auto memory = emulator_->memory();
+  XELOGW("SOON LOADSTATE");
+  for (uint32_t i = 0; i < ADDR_STATE_SAVE_END - ADDR_STATE_SAVE_START; i += sizeof(uint32_t))
+  {
+	xe::store_and_swap<uint32_t>(memory->TranslateVirtual(ADDR_STATE_SAVE_START + i), saveStateMemory[i]);
+  }
+  XELOGW("END LOADSTATE");
+}	
 
 const char* EmulatorWindow::GetCvarValueForSwapPostEffect(
     gpu::CommandProcessor::SwapPostEffect effect) {
